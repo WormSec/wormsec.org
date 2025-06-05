@@ -1,4 +1,4 @@
-FROM node:23.11.1
+FROM node:23.11.1 AS builder
 
 WORKDIR /app/
 
@@ -11,6 +11,7 @@ COPY ./public/ /app/public/
 
 RUN npm run build
 
-EXPOSE 3000
-
-ENTRYPOINT [ "npm", "start" ]
+FROM busybox:stable
+COPY --from=builder /app/build/ /www/
+EXPOSE 80
+ENTRYPOINT [ "httpd", "-f", "-p", "80", "-h", "/www/" ]
