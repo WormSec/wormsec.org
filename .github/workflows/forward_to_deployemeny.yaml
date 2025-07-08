@@ -1,0 +1,36 @@
+name: Forward to deployement
+
+on:
+  push:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  mirror_to_pages:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout the code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Mirror to deployement
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          export GIT_SSH_COMMAND="ssh -v -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no -l git"
+          git config --global user.name "${{ github.event.commits[0].author.username }}"
+          git config --global user.email "${{ github.event.commits[0].author.email }}"
+          git clone ${{ secrets.DEPLOYEMENT_REPO }} /tmp/deployement_repo/
+          rm -rf /tmp/deployement_repo/frontend/
+          cp -r ./ /tmp/deployement_repo/frontend/
+          rm -rf /tmp/deployement_repo/frontend/.gitignore
+          rm -rf /tmp/deployement_repo/frontend/.github/
+          rm -rf /tmp/deployement_repo/frontend/.git/
+          cd /tmp/deployement_repo/
+          git add .
+          git commit -m '[AUTO] ${{ github.event.head_commit.message }}' || exit 0
+          git push
